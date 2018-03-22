@@ -144,6 +144,9 @@ MQTT_ERR_QUEUE_SIZE = 15
 
 sockpair_data = b"0"
 
+MQTT_CLIENT = 0
+MQTT_BRIDGE = 1
+
 
 class WebsocketConnectionError(ValueError):
     pass
@@ -456,7 +459,7 @@ class Client(object):
     """
 
     def __init__(self, client_id="", clean_session=True, userdata=None,
-            protocol=MQTTv311, transport="tcp"):
+            protocol=MQTTv311, transport="tcp", mode=MQTT_CLIENT):
         """client_id is the unique client id string used when connecting to the
         broker. If client_id is zero length or None, then the behaviour is
         defined by which protocol version is in use. If using MQTT v3.1.1, then
@@ -500,6 +503,7 @@ class Client(object):
         self._message_retry = 20
         self._last_retry_check = 0
         self._clean_session = clean_session
+        self._client_mode=mode
 
         # [MQTT-3.1.3-4] Client Id must be UTF-8 encoded string.
         if client_id == "" or client_id is None:
@@ -2097,6 +2101,7 @@ class Client(object):
 
     def _send_connect(self, keepalive, clean_session):
         proto_ver = self._protocol
+        print(proto_ver)
         protocol = b"MQTT" if proto_ver >= MQTTv311 else b"MQIsdp"  # hard-coded UTF-8 encoded string
 
         remaining_length = 2 + len(protocol) + 1 + 1 + 2 + 2 + len(self._client_id)
@@ -2120,10 +2125,20 @@ class Client(object):
         packet = bytearray()
         packet.append(command)
 
-        self._pack_remaining_length(packet, remaining_length)
-        packet.extend(struct.pack("!H" + str(len(protocol)) + "sBBH", len(protocol), protocol, proto_ver, connect_flags,
-                                  keepalive))
+        if self._client_mode == MQTT_BRIDGE:
+            if self._protocol == MQTTv31:
+                proto_ver = 0x83
+            elif self._protocol == MQTTv311:
+                proto_ver = 0x84
 
+        self._pack_remaining_length(packet, remaining_length)
+        packet.extend(
+            struct.pack(
+                "!H" + str(len(protocol)) + "sBBH",
+                len(protocol), protocol,
+                proto_ver, connect_flags, keepalive
+            )
+        )
         self._pack_str16(packet, self._client_id)
 
         if self._will:
@@ -2149,6 +2164,9 @@ class Client(object):
             keepalive,
             self._client_id
         )
+
+        print(packet)
+
         return self._packet_queue(command, packet, 0, 0)
 
     def _send_disconnect(self):
