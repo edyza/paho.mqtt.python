@@ -2101,7 +2101,6 @@ class Client(object):
 
     def _send_connect(self, keepalive, clean_session):
         proto_ver = self._protocol
-        print(proto_ver)
         protocol = b"MQTT" if proto_ver >= MQTTv311 else b"MQIsdp"  # hard-coded UTF-8 encoded string
 
         remaining_length = 2 + len(protocol) + 1 + 1 + 2 + 2 + len(self._client_id)
@@ -2125,11 +2124,10 @@ class Client(object):
         packet = bytearray()
         packet.append(command)
 
+        # as per the mosquitto broker, if the MSB of this version is set
+        # to 1, then it treats the connection as a bridge
         if self._client_mode == MQTT_BRIDGE:
-            if self._protocol == MQTTv31:
-                proto_ver = 0x83
-            elif self._protocol == MQTTv311:
-                proto_ver = 0x84
+            proto_ver |= 0x80
 
         self._pack_remaining_length(packet, remaining_length)
         packet.extend(
@@ -2164,8 +2162,6 @@ class Client(object):
             keepalive,
             self._client_id
         )
-
-        print(packet)
 
         return self._packet_queue(command, packet, 0, 0)
 
