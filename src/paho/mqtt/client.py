@@ -490,6 +490,16 @@ class Client(object):
 
         Set transport to "websockets" to use WebSockets as the transport
         mechanism. Set to "tcp" to use raw TCP, which is the default.
+
+        mode variable isused to define if the client is acting as a client or a
+        bridge. If the mode is defined as a bridge then:
+            The broker will identify the client as a bridge and not send your
+            messages back to you. This feature also correctly propagates the
+            retain flag on the messages.
+
+            This isn't something that is part of the current spec. CUrrently
+            Mosquitto and RSMB support this feature. This feature can be used
+            to create a bridge between multiple broker.
         """
         if not clean_session and (client_id == "" or client_id is None):
             raise ValueError('A client id must be provided if clean session is False.')
